@@ -1,7 +1,7 @@
 //установщик для нашего приложения, всё это можно вынести в отдельный класс, требует обсуждения
 
 #include <iostream>
-#include <Windows.h>
+#include <windows.h>
 #include <fstream> //для работы с файлами
 #include <direct.h>
 
@@ -21,64 +21,99 @@ struct Discipline { //в основном файле это можно выне�
 	string name;
 };
 
-void Installer() {
-	string way = { "resourse/" };//путь к папке с данными
-	int numberOfDisciplines = 3; //для начала возьмём 3 дисциплины, я думаю 
-	Discipline* MassiveDiscipline = new Discipline[numberOfDisciplines];//динамический массив для всех дисциплин. 
-	//Если будет больше, то будем пересоздавать массив, если разработкой буду заниматься не Я(Никита), 
-	// то аккуратней, не забывайте удалять и чистить память, чтобы не было утечек.
-	int countDiscipline = 0;//счетчик для возможного увеличения длины массива
-	int numberLabs;
-	int numberControl;
-	while (true) {
-		system("cls");
-		if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) { // Check highest-order bit
-			break; // Exit immediately if Escape is pressed
-		}
-		cout << "Для завершения работы программы нажмите Esc" << endl;
-		if (countDiscipline > 3) {//превысило начальное количество
-			delete[] MassiveDiscipline;//удаляем массив
-			Discipline* MassiveDiscipline = new Discipline[countDiscipline];
-		}
-		cout << "Введите название дисциплины (Английский язык!!!)" << endl;
-		string DisciplineName;
-		cin >> DisciplineName;
-		string path = way + DisciplineName;
-		if (_mkdir((path).c_str()) == 0) {//удалось ли создать папку
-			MassiveDiscipline[countDiscipline].WaysDataLabs = way + DisciplineName + "/" + DisciplineName + "Labs" + ".txt";//записали в структуру путь к дисциплине
-			MassiveDiscipline[countDiscipline].name = DisciplineName;
-			cout << "Введите количество лабораторных работ" << endl;
-			cin >> numberLabs;//возможно, надо будет использовать scanf из си, дабы проверять ввод. Но я не уверен будем ли мы заходить в такие дебри
-			MassiveDiscipline[countDiscipline].Labs = numberLabs;
-
-			cout << "Введите количество контрольных работ" << endl;//? под вопросом, пользователь может не знать количество контрольных работ по дисциплине
-			cin >> numberControl;
-			MassiveDiscipline[countDiscipline].ControlWorks = numberControl;
-			if (numberControl > 0) {
-				MassiveDiscipline[countDiscipline].WaysDataControls = way + DisciplineName + "/" + DisciplineName + "Controls.txt";
-			}
-
-			if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) { // нажато Esc
-				break; // Exit immediately if Escape is pressed
-			}
-			fstream FileLabs(MassiveDiscipline[countDiscipline].WaysDataLabs, ios::in | ios::app);//создаем файл с лабой и открываем его
-			if (FileLabs.is_open()) {
-				for (int i = 0; i < numberLabs; i++) {
-					FileLabs << " X |";//крестик - не сдана
-				}
-			}
-			FileLabs.close();
-			fstream FileControls(MassiveDiscipline[countDiscipline].WaysDataControls, ios::in | ios::app);//создаем файл с контрольными работами и открываем его
-			if (FileControls.is_open()) {
-				for (int i = 0; i < numberControl; i++) {
-					FileControls << " X |";
-				}
-			}
-			countDiscipline++;
-		}
+int CheckResource() {
+	int check;
+	fstream SettingFile("resourse/settings.txt", ios::in | ios::out);
+	if (SettingFile.is_open()) {
+        SettingFile >> check;
+        SettingFile.close();
+		return check;
+	}
+	else {
+		SettingFile.close();
+		return 0;
 	}
 }
 
+void Installer() {
+	string way = { "resourse/" };//путь к папке с данными
+    Discipline* MassiveDiscipline = new Discipline[3]; // Initial size
+    int countDiscipline = 0;
+    int numberLabs, numberControl;
+
+    int NumberDisciplinel = 1;
+    cin >> NumberDisciplinel;
+    for (int i = 0; i < NumberDisciplinel; i++) {
+        system("cls");
+
+        cout << "Список дисциплин: " << endl;
+        for (int i = 0; i < countDiscipline; i++){
+            cout << MassiveDiscipline[i].name << endl;
+        }
+
+        cout << "Введите название дисциплины (Английский язык!!!) или нажмите Esc для выхода:" << endl;
+        string DisciplineName;
+        cin >> DisciplineName;
+        if (DisciplineName.empty()) {
+            cout << "Пустой ввод, выход." << endl;
+            break;
+        }
+
+        string path = way + DisciplineName;
+
+        if (_mkdir((path).c_str()) == 0) {
+            Discipline* newMassiveDiscipline = new Discipline[countDiscipline + 1];
+
+            for (int i = 0; i < countDiscipline; i++) {
+                newMassiveDiscipline[i] = MassiveDiscipline[i];
+            }
+            delete[] MassiveDiscipline;
+
+            MassiveDiscipline = newMassiveDiscipline;
+
+            MassiveDiscipline[countDiscipline].WaysDataLabs = way + DisciplineName + "/" + DisciplineName + "Labs" + ".txt";
+            MassiveDiscipline[countDiscipline].name = DisciplineName;
+            cout << "Введите количество лабораторных работ" << endl;
+            cin >> numberLabs;
+            MassiveDiscipline[countDiscipline].Labs = numberLabs;
+
+            cout << "Введите количество контрольных работ" << endl;
+            cin >> numberControl;
+            MassiveDiscipline[countDiscipline].ControlWorks = numberControl;
+            if (numberControl > 0) {
+                MassiveDiscipline[countDiscipline].WaysDataControls = way + DisciplineName + "/" + DisciplineName + "Controls.txt";
+            }
+
+            fstream FileLabs(MassiveDiscipline[countDiscipline].WaysDataLabs, ios::in | ios::app);
+            if (FileLabs.is_open()) {
+                for (int i = 0; i < numberLabs; i++) {
+                    FileLabs << " X |";
+                }
+            }
+            FileLabs.close();
+
+            fstream FileControls(MassiveDiscipline[countDiscipline].WaysDataControls, ios::in | ios::app);
+            if (FileControls.is_open()) {
+                for (int i = 0; i < numberControl; i++) {
+                    FileControls << " X |";
+                }
+            }
+            countDiscipline++;
+            FileControls.close();
+
+        }
+        else {
+            cerr << "Не удалось открыть папку с ресурсами" << endl;
+        }
+
+    }
+    ofstream SettingFiles("resourse/settings.txt", ios::out | ios::trunc);
+    SettingFiles << 1 << endl;
+	delete[] MassiveDiscipline;
+}
+
 int main() {//пока примерный консольный вид работы
-	Installer();
+	int CheckSettings = CheckResource();//проверяем, вводились ли данные
+	if (CheckSettings == 0) { Installer(); }//если в файле 0, то устанавливаем базы данных дисциплин
+    else { cout << "ы"; }
 }
