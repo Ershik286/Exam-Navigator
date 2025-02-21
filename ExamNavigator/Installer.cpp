@@ -36,7 +36,7 @@ int CheckResource() {
 }
 
 void Installer() {
-	string way = { "resourse/" };//путь к папке с данными
+    string way = { "resourse/" };//путь к папке с данными
     Discipline* MassiveDiscipline = new Discipline[3]; // Initial size
     int countDiscipline = 0;
     int numberLabs, numberControl;
@@ -109,11 +109,11 @@ void Installer() {
     }
     ofstream SettingFiles("resourse/settings.txt", ios::out | ios::trunc);
     SettingFiles << 1 << endl;
-	delete[] MassiveDiscipline;
+    delete[] MassiveDiscipline;
 }
 
 int main() {//пока примерный консольный вид работы
 	int CheckSettings = CheckResource();//проверяем, вводились ли данные
 	if (CheckSettings == 0) { Installer(); }//если в файле 0, то устанавливаем базы данных дисциплин
-    else { cout << "ы"; }
+    else { cout << "ы"; }//базы данных созданы
 }
