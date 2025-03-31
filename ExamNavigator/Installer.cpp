@@ -7,47 +7,65 @@
 
 using namespace std;
 
+const int ROWS = 420;
+const int COLOMN = 420;
+
+const int cellSize = 50;
+int rowTables = 5;
+int colTables = 7;
+
+const int shiftRows = 50;//Shift menu
+
+void reInitializationMassive(int rowTables, int colTables) {
+    int** tables{ new int* [rowTables] {} };
+    for (int i = 0; i < rowTables; i++) {
+        tables[i] = new int[colTables];
+    }
+}
+
+HDC hdc;
+
 struct Discipline { //в основном файле это можно вынести в конструктор класса, в установщике думаю хватит структуры(?) Всё больше склоняюсь к классу, для работы с динмассивом
-	int ControlWorks = 2; //количество контрольных работ
-	int Labs = 8; //количество лабораторных работ
-	string WaysDataLabs = { "" }; //путь к файлу
-	string WaysDataControls = { "" };
+    int ControlWorks = 2; //количество контрольных работ
+    int Labs = 8; //количество лабораторных работ
+    string WaysDataLabs = { "" }; //путь к файлу
+    string WaysDataControls = { "" };
 
-	int* MassiveLabs = new int [Labs];//массив хранящий данные по лабораторной работе
-	int* MassiveControlWorks = new int[ControlWorks];//массив для оценок за контрольные работы
-	int scores;//количество баллов
-	bool FlagExamsOrTest = false; //флаг, если false, то зачет, если true, то Экзамен. Нужно для работы скриптов у ИИ 
+    int* MassiveLabs = new int[Labs];//массив хранящий данные по лабораторной работе
+    int* MassiveControlWorks = new int[ControlWorks];//массив для оценок за контрольные работы
+    int scores;//количество баллов
+    bool FlagExamsOrTest = false; //флаг, если false, то зачет, если true, то Экзамен. Нужно для работы скриптов у ИИ 
 
-	string name;
+    string name;
 };
 
 int CheckResource() {
-	int check;
-	fstream SettingFile("resourse/settings.txt", ios::in | ios::out);
-	if (SettingFile.is_open()) {
+    int check;
+    fstream SettingFile("resourse/settings.txt", ios::in | ios::out);
+    if (SettingFile.is_open()) {
         SettingFile >> check;
         SettingFile.close();
-		return check;
-	}
-	else {
-		SettingFile.close();
-		return 0;
-	}
+        return check;
+    }
+    else {
+        SettingFile.close();
+        return 0;
+    }
 }
 
 void Installer() {
     string way = { "resourse/" };//путь к папке с данными
-    Discipline* MassiveDiscipline = new Discipline[3]; // Initial size
+    Discipline* MassiveDiscipline = new Discipline[3]; //инициализируем начальный маасив
     int countDiscipline = 0;
     int numberLabs, numberControl;
 
     int NumberDisciplinel = 1;
-    cin >> NumberDisciplinel;
+    cin >> NumberDisciplinel;//считываем количество дисциплин
     for (int i = 0; i < NumberDisciplinel; i++) {
         system("cls");
 
         cout << "Список дисциплин: " << endl;
-        for (int i = 0; i < countDiscipline; i++){
+        for (int i = 0; i < countDiscipline; i++) {
             cout << MassiveDiscipline[i].name << endl;
         }
 
@@ -62,10 +80,10 @@ void Installer() {
         string path = way + DisciplineName;
 
         if (_mkdir((path).c_str()) == 0) {
-            Discipline* newMassiveDiscipline = new Discipline[countDiscipline + 1];
+            Discipline* newMassiveDiscipline = new Discipline[countDiscipline + 1];//увеличиваем длину массива
 
             for (int i = 0; i < countDiscipline; i++) {
-                newMassiveDiscipline[i] = MassiveDiscipline[i];
+                newMassiveDiscipline[i] = MassiveDiscipline[i]; //перезапись массива
             }
             delete[] MassiveDiscipline;
 
@@ -112,8 +130,104 @@ void Installer() {
     delete[] MassiveDiscipline;
 }
 
-int main() {//пока примерный консольный вид работы
-	int CheckSettings = CheckResource();//проверяем, вводились ли данные
-	if (CheckSettings == 0) { Installer(); }//если в файле 0, то устанавливаем базы данных дисциплин
-    else { cout << "ы"; }//базы данных созданы
+
+
+
+
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
+    const wchar_t CLASS_NAME[] = L"Installer";
+
+    WNDCLASS wc = {};
+
+    wc.lpfnWndProc = WindowProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = CLASS_NAME;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+
+    RegisterClass(&wc);
+
+    // Create Window
+    HWND hwnd = CreateWindowEx(
+        0,                              // Optional window styles.
+        CLASS_NAME,                     // Window class
+        L"InstallerExamNavigator",    // Window text
+        WS_OVERLAPPEDWINDOW,            // Window style
+
+        //size Window
+        CW_USEDEFAULT, CW_USEDEFAULT, COLOMN * (cellSize + 10), ROWS * (cellSize + 10),
+
+        NULL,       // Parent window    
+        NULL,       // Menu
+        hInstance,  // Instance handle
+        NULL        // Additional application data
+    );
+
+    if (hwnd == NULL) {
+        return 0;
+    }
+
+    ShowWindow(hwnd, nCmdShow);
+
+    MSG msg = {};
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    return 0;
+}
+
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    static int sX, sY;
+    switch (uMsg) {
+    case WM_SIZE:
+        sX = LOWORD(lParam);
+        sY = LOWORD(wParam);
+        break; // Add break here
+
+    case WM_CREATE:
+        int CheckSettings = CheckResource();//проверяем, вводились ли данные
+        if (CheckSettings == 0) { Installer(); }//если в файле 0, то 
+        break; // Add break here
+
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        hdc = BeginPaint(hwnd, &ps);
+        EndPaint(hwnd, &ps);
+        break; // Add break here
+    }
+
+    case WM_LBUTTONDOWN: {
+        int xPos = LOWORD(lParam);
+        int yPos = HIWORD(lParam);
+
+        int col = (xPos) / cellSize;
+        int row = (yPos) / cellSize;
+
+        // Validate row and col to prevent out-of-bounds access
+        if (col >= 0 && col < COLOMN && row >= 0 && row < ROWS) {
+            InvalidateRect(hwnd, NULL, TRUE); // Force a redraw
+        }
+        break; // Add Break here
+    }
+
+    case WM_RBUTTONDOWN: {
+        int xPos = LOWORD(lParam);  // horizontal position of cursor
+        int yPos = HIWORD(lParam);  // vertical position of cursor
+
+        int col = (xPos) / cellSize;
+        int row = (yPos) / cellSize;
+        InvalidateRect(hwnd, NULL, TRUE);
+        break;
+    }
+
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
+
+    default:
+        return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+    return 0;
 }
