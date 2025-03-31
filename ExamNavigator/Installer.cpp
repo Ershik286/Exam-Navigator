@@ -19,10 +19,10 @@ int colTables = 7;
 
 const int shiftRows = 50;//Shift menu
 const int shiftCol = 25;
-static HBRUSH whiteBrush = CreateSolidBrush(RGB(255, 255, 255));
-static HBRUSH blackBrush = CreateSolidBrush(RGB(0, 0, 0));
-static HBRUSH RedBrush = CreateSolidBrush(RGB(255, 0, 0));
-static HBRUSH GreenBrush = CreateSolidBrush(RGB(0, 255, 0));
+HBRUSH whiteBrush = CreateSolidBrush(RGB(255, 255, 255));
+HBRUSH blackBrush = CreateSolidBrush(RGB(0, 0, 0));
+HBRUSH RedBrush = CreateSolidBrush(RGB(255, 0, 0));
+HBRUSH GreenBrush = CreateSolidBrush(RGB(0, 255, 0));
 
 /*  Const   */
 
