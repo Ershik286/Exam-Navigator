@@ -5,6 +5,7 @@
 #include <fstream> //для работы с файлами
 #include <direct.h>
 #include <tchar.h>
+#include <conio.h>
 
 using namespace std;
 
@@ -23,9 +24,13 @@ HBRUSH whiteBrush = CreateSolidBrush(RGB(255, 255, 255));
 HBRUSH blackBrush = CreateSolidBrush(RGB(0, 0, 0));
 HBRUSH RedBrush = CreateSolidBrush(RGB(255, 0, 0));
 HBRUSH GreenBrush = CreateSolidBrush(RGB(0, 255, 0));
+COLORREF textColor = RGB(255, 255, 255);
+int inputСounter = 0;// будем увеличивать счетчик по мере ввода новых значений
 
 /*  Const   */
 
+const int Enter = 13;
+const int BackSpace = 7;//не помню какой там код ToDo
 
 /*Переменные*/
 
@@ -83,13 +88,15 @@ int CheckResource() {
     }
 }
 
-void InstallerMain() { //доделать
+void InstallerMain(HWND hwnd, HDC hdc) { //доделать
     string way = { "resourse/" };//путь к папке с данными
     Discipline* MassiveDiscipline = new Discipline[3]; //инициализируем начальный маасив
     int countDiscipline = 0;
     int numberLabs, numberControl;
 
     int NumberDisciplinel = 1;
+
+
     //cin >> NumberDisciplinel;//считываем количество дисциплин
     //for (int i = 0; i < NumberDisciplinel; i++) {
     //    system("cls");
@@ -154,10 +161,10 @@ void InstallerMain() { //доделать
     //        cerr << "Не удалось открыть папку с ресурсами" << endl;
     //    }
 
-    //}
-    ofstream SettingFiles("resourse/settings.txt", ios::out | ios::trunc);
-    SettingFiles << 1 << endl;
-    delete[] MassiveDiscipline;
+    ////}
+    //ofstream SettingFiles("resourse/settings.txt", ios::out | ios::trunc);
+    //SettingFiles << 1 << endl;
+    //delete[] MassiveDiscipline;
 }
 
 
@@ -208,27 +215,67 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     return 0;
 }
 
-void DrawTable(int** tables);
+void DrawTable(int** tables, HDC hdc);
+
+void drawMessage(HDC hdc);
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     static int sX, sY;
+    static int inputСounter = 0;// будем увеличивать счетчик по мере ввода новых значений
     switch (uMsg) {
     case WM_SIZE:
         sX = LOWORD(lParam);
-        sY = LOWORD(wParam);
+        sY = HIWORD(wParam); // Fixed here!
         break; // Add break here
 
-    case WM_CREATE:
-        //int CheckSettings = CheckResource();//проверяем, вводились ли данные
-        //if (CheckSettings == 0) { Installer(); }//если в файле 0, то 
+
+    case WM_CREATE: {
         initializationTables(rowTables, colTables);
-        InstallerMain();
+        InvalidateRect(hwnd, NULL, TRUE);
         break; // Add break here
-
+    }
     case WM_PAINT: {
         PAINTSTRUCT ps;
-        hdc = BeginPaint(hwnd, &ps);
-        //DrawTable(tables);
+        HDC hdc = BeginPaint(hwnd, &ps);
+
+        // Clear the background
+        //HBRUSH hbr = CreateSolidBrush(RGB(255, 255, 255));
+        //FillRect(hdc, &ps.rcPaint, hbr);
+        //DeleteObject(hbr);
+
+        // Set text color
+        SetTextColor(hdc, textColor);
+
+        // 1. Create a font
+        HFONT hFont = CreateFontW(  // Use CreateFontW for Unicode!
+            25,                         // Height
+            0,                          // Width
+            0, 0,                       // Escapement, Orientation
+            FW_NORMAL,                  // Weight (FW_BOLD for bold, etc.)
+            FALSE,                      // Italic
+            FALSE,                      // Underline
+            0,                          // StrikeOut
+            DEFAULT_CHARSET,             // CharSet
+            OUT_DEFAULT_PRECIS,           // OutputPrecision
+            CLIP_DEFAULT_PRECIS,          // ClipPrecision
+            DEFAULT_QUALITY,              // Quality
+            DEFAULT_PITCH | FF_DONTCARE, // PitchAndFamily
+            L"Arial"                      // FaceName (font name)
+        );
+
+        // 2. Select the font into the HDC
+        HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+
+        // Now we can draw the message
+        drawMessage(hdc);
+        //DrawTable(tables, hdc);
+
+        // 3. Restore the old font
+        SelectObject(hdc, hOldFont);
+
+        // 4. Delete the font
+        DeleteObject(hFont);
+
         EndPaint(hwnd, &ps);
         break; // Add break here
     }
@@ -237,17 +284,34 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         int xPos = LOWORD(lParam);
         int yPos = HIWORD(lParam);
 
+        if (xPos >= 200 && xPos <= 530 && yPos >= 190 && yPos <= 225) {//нажали для ввода 
+            string message = "";
+            while (true) {
+                char letter = _getch();
+                if ((int)letter == 13) { //Enter
+
+                }
+            }
+        }
+
         int col = (xPos - shiftCol) / cellSize;//вычисляем позицию у щелчка мышкой
         int row = (yPos - shiftRows) / cellSize;
 
         // Validate row and col to prevent out-of-bounds access
-        if (col >= 0 && col < COLOMN && row >= 0 && row < ROWS) {
+        if (col >= 0 && col < colTables && row >= 0 && row < rowTables) { // Fix rowTables and colTables
             InvalidateRect(hwnd, NULL, TRUE); // redraw full Window
         }
-        char buffer[256]; // Буфер для форматирования текста
-        sprintf_s(buffer, 256, "Вы нажали на клетку %d %d", row, col); // Форматируем строку
+        /*arealInput.left = 200;
+        arealInput.right = 530;
+        arealInput.top = 190;
+        arealInput.bottom = 225;
+        FrameRect(hdc, &arealInput, blackBrush);*/
 
-        MessageBoxA(NULL, buffer, "Debug Values", MB_OK); // Отображаем MessageBox
+
+        //char buffer[256]; // Буфер для форматирования текста
+        //sprintf_s(buffer, 256, "Вы нажали на клетку %d %d", row, col); // Форматируем строку
+
+        //MessageBoxA(NULL, buffer, "Debug Values", MB_OK); // Отображаем MessageBox
         break; // Add Break here
     }
 
@@ -276,9 +340,40 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 // -> введите все данные по дисциплине (думаю, будет табличка 1 на 7 с ячейками куда будет вводить) -> Продолжить ввод новых дисциплин?
 //И всплывает 2 кнопки Да/Нет. Если нажата "нет", соответственно выходим из установщика
 
-void drawButton(int x, int y, HBRUSH brush, bool YesNo);
+void drawButton(int x, int y, HBRUSH brush, bool YesNo, HDC hdc);
 
-void DrawTable(int** tables) {
+void drawMessage(HDC hdc) {
+    TCHAR MessageNumberOfDisciplines[100] = L""; // Initialize with empty string
+    if (inputСounter == 0) {
+        wcscpy_s(MessageNumberOfDisciplines, 100, L"Введите количество дисциплин");
+    }
+    else if (inputСounter == 1) {
+        wcscpy_s(MessageNumberOfDisciplines, 100, L"Введите количество контрольных работ");
+    }
+    else if (inputСounter == 2) {
+        wcscpy_s(MessageNumberOfDisciplines, 100, L"Введите количество лабораторных работ");
+        inputСounter = 0;  // Reset counter to 0, not 1
+    }
+
+    //wchar_t wbuffer[256]; // Буфер для форматирования Unicode-текста
+    //swprintf_s(wbuffer, 256, L"%s", MessageNumberOfDisciplines); // Форматируем Unicode-строку.  Использован "%s", т.к. MessageNumberOfDisciplines - TCHAR
+    //MessageBoxW(NULL, wbuffer, L"Сообщение", MB_OK | MB_ICONINFORMATION); // Отображаем MessageBox
+    SetBkMode(hdc, TRANSPARENT);//Прозрачность
+    SetTextColor(hdc, RGB(128, 0, 0));
+
+    TextOutW(hdc, 200, 160 , MessageNumberOfDisciplines, _tcslen(MessageNumberOfDisciplines)); //TextOutW используется для вывода TCHAR
+    RECT arealInput;
+    arealInput.left = 200;
+    arealInput.right = 530;
+    arealInput.top = 190;
+    arealInput.bottom = 225;
+    FrameRect(hdc, &arealInput, blackBrush);
+
+    inputСounter++; // Increment the counter
+
+}
+
+void DrawTable(int** tables, HDC hdc) {//Заготовка для уже полноценного приложения, для рисования таблички
 
     for (int y = 0; y < rowTables; y++) {
         for (int x = 0; x < colTables; x++) {
@@ -295,7 +390,7 @@ void DrawTable(int** tables) {
 }
 
 
-void drawButton(int x, int y, HBRUSH brush, bool YesNo) {
+void drawButton(int x, int y, HBRUSH brush, bool YesNo, HDC hdc) {
     RECT button;
     button.left = x;
     button.right = x + cellSize;
@@ -303,17 +398,17 @@ void drawButton(int x, int y, HBRUSH brush, bool YesNo) {
     button.bottom = y + 40;
     FillRect(hdc, &button, brush);
     FrameRect(hdc, &button, CreateSolidBrush(RGB(0, 0, 0)));
-    COLORREF textColor = RGB(255, 255, 255);
+
     SetBkMode(hdc, TRANSPARENT);//Прозрачность
 
     if (YesNo) {
         TCHAR numStr[5] = L"Yes";
         SetTextColor(hdc, textColor);
-        TextOut(hdc, x + 15, y + 10, numStr, _tcslen(numStr));
+        TextOutW(hdc, x + 15, y + 10, numStr, _tcslen(numStr)); //TextOutW используется для вывода TCHAR
     }
     else {
         TCHAR numStr[5] = L"No";
         SetTextColor(hdc, textColor);
-        TextOut(hdc, x + 15, y + 10, numStr, _tcslen(numStr));
+        TextOutW(hdc, x + 15, y + 10, numStr, _tcslen(numStr)); //TextOutW используется для вывода TCHAR
     }
 }
