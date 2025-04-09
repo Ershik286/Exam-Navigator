@@ -5,12 +5,19 @@
 #include <tchar.h>
 #include <string>
 #include <vector>
+#include <lmcons.h>
+#include <ShlObj.h>  
+#include <locale>
+#include <codecvt>
 
 using namespace std;
 
 // Константы
+
+bool flagCreateDirectory = false;
+
 const int ROWS = 600;
-const int COLOMN = 800;
+const int COLOMN = 600;
 const int cellSize = 75;
 const int shiftRows = 50;
 const int shiftCol = 25;
@@ -42,6 +49,8 @@ string currentDisciplineName;
 string currentLabsStr;
 string currentControlWorksStr;
 
+wchar_t username[UNLEN + 1];
+
 // Определения ID для элементов управления (edit control, button)
 #define IDC_EDIT_DISCIPLINE_NAME 1001
 #define IDC_EDIT_LABS 1002
@@ -55,34 +64,62 @@ void DrawText(HDC hdc, int x, int y, const wstring& text) {
     TextOutW(hdc, x, y, text.c_str(), text.length());
 }
 
+//Функция создание папки с данными пользователя
+bool CreateDirectoryWWrapper(const wstring& path) {
+    if (CreateDirectoryW(path.c_str(), NULL)) {
+        return true;
+    }
+    else {
+        DWORD error = GetLastError();
+        return false;
+    }
+}
+
+// Функция для преобразования string в wstring (UTF-8)
+string wstringToUTF8(const wstring& wstr) {
+    wstring_convert<codecvt_utf8<wchar_t>> converter;
+    return converter.to_bytes(wstr);
+}
+
+std::wstring UTF8_to_wstring(const std::string& str) {
+    if (str.empty()) return std::wstring();
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), NULL, 0);
+    if (size_needed == 0) {
+        return std::wstring(); // Ошибка
+    }
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, str.data(), (int)str.size(), &wstrTo[0], size_needed);
+    return wstrTo;
+}
+
 // Функция для обработки ввода данных по дисциплине
 void createDisciplineInputControls(HWND hwnd) {
     int xLabel = 50;
     int yLabel = 100;
-    int xInput = xLabel + 150;
+    int xInput = xLabel + 190;
     int yInput = yLabel;
 
     // 1. Создаем статический текст (метки)
-    CreateWindowW(L"STATIC", L"Название дисциплины:", WS_VISIBLE | WS_CHILD, xLabel, yLabel, 140, 20, hwnd, (HMENU)IDC_STATIC_TEXT, GetModuleHandle(NULL), NULL);
-    yLabel += 30;
-    CreateWindowW(L"STATIC", L"Количество лабораторных:", WS_VISIBLE | WS_CHILD, xLabel, yLabel, 140, 20, hwnd, (HMENU)IDC_STATIC_TEXT, GetModuleHandle(NULL), NULL);
-    yLabel += 30;
-    CreateWindowW(L"STATIC", L"Количество контрольных:", WS_VISIBLE | WS_CHILD, xLabel, yLabel, 140, 20, hwnd, (HMENU)IDC_STATIC_TEXT, GetModuleHandle(NULL), NULL);
+    CreateWindowW(L"STATIC", L"Название дисциплины:", WS_VISIBLE | WS_CHILD, xLabel, yLabel, 180, 20, hwnd, (HMENU)IDC_STATIC_TEXT, GetModuleHandle(NULL), NULL);
+    yLabel += 40;
+    CreateWindowW(L"STATIC", L"Количество лабораторных:", WS_VISIBLE | WS_CHILD, xLabel, yLabel, 180, 20, hwnd, (HMENU)IDC_STATIC_TEXT, GetModuleHandle(NULL), NULL);
+    yLabel += 40;
+    CreateWindowW(L"STATIC", L"Количество контрольных:", WS_VISIBLE | WS_CHILD, xLabel, yLabel, 180, 20, hwnd, (HMENU)IDC_STATIC_TEXT, GetModuleHandle(NULL), NULL);
 
     // 2. Создаем поля ввода (Edit Control)
     yLabel = 100;
     yInput = yLabel;
     HWND editName = CreateWindowW(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, xInput, yInput, inputFieldWidth, inputFieldHeight, hwnd, (HMENU)IDC_EDIT_DISCIPLINE_NAME, GetModuleHandle(NULL), NULL);
-    yLabel += 30;
+    yLabel += 40;
     yInput = yLabel;
     HWND editLabs = CreateWindowW(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, xInput, yInput, inputFieldWidth, inputFieldHeight, hwnd, (HMENU)IDC_EDIT_LABS, GetModuleHandle(NULL), NULL);
-    yLabel += 30;
+    yLabel += 40;
     yInput = yLabel;
     HWND editControlWorks = CreateWindowW(L"EDIT", L"", WS_VISIBLE | WS_CHILD | WS_BORDER, xInput, yInput, inputFieldWidth, inputFieldHeight, hwnd, (HMENU)IDC_EDIT_CONTROL_WORKS, GetModuleHandle(NULL), NULL);
 
     // 3. Создаем кнопки
-    CreateWindowW(L"BUTTON", L"Экзамен", WS_VISIBLE | WS_CHILD, xInput + 250, 100, 80, 30, hwnd, (HMENU)IDC_BUTTON_EXAM, GetModuleHandle(NULL), NULL);
-    CreateWindowW(L"BUTTON", L"Зачет", WS_VISIBLE | WS_CHILD, xInput + 250, 130, 80, 30, hwnd, (HMENU)IDC_BUTTON_CREDIT, GetModuleHandle(NULL), NULL);
+    CreateWindowW(L"BUTTON", L"Экзамен", WS_VISIBLE | WS_CHILD, xInput + 215, 100, 80, 30, hwnd, (HMENU)IDC_BUTTON_EXAM, GetModuleHandle(NULL), NULL);
+    CreateWindowW(L"BUTTON", L"Зачет", WS_VISIBLE | WS_CHILD, xInput + 215, 136, 80, 30, hwnd, (HMENU)IDC_BUTTON_CREDIT, GetModuleHandle(NULL), NULL);
 
 }
 
@@ -112,12 +149,32 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
     HDC hdc;
     PAINTSTRUCT ps;
     static HWND hEditName, hEditLabs, hEditControlWorks; // Store edit control handles
+    static bool folderCreated = false;
+
+    wchar_t appDataPath[MAX_PATH];
+    SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, appDataPath);
+    wstring appDataDir(appDataPath);
+    wstring wayDirectory = appDataDir + L"\\ExamNavigator\\resource"; // Путь к папке
 
     switch (uMsg) {
-    case WM_CREATE:
+    case WM_CREATE: {
         // Инициализация окна
         createDisciplineInputControls(hwnd);
+        DWORD username_len = UNLEN + 1;
+        GetUserNameW(username, &username_len);
+
+        if (!folderCreated) {
+            if (CreateDirectoryWWrapper(appDataDir + L"\\ExamNavigator")) {//создаем папку приложения
+                if (CreateDirectoryWWrapper(wayDirectory)) {
+                    folderCreated = true;
+                }
+                else {
+                    MessageBoxW(hwnd, L"Не удалось создать папку для данных", L"Ошибка", MB_OK | MB_ICONERROR);
+                }
+            }
+        }
         break;
+    }
 
     case WM_COMMAND:
     {
@@ -159,7 +216,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
                 newDiscipline.labs = stoi(strLabs);
                 newDiscipline.controlWorks = stoi(strControlWorks);
             }
-            catch (const std::invalid_argument& ia) {
+            catch (const invalid_argument& ia) {
                 MessageBoxW(hwnd, L"Некорректный ввод чисел.", L"Ошибка", MB_OK | MB_ICONERROR);
                 break; // Выходим из case, не добавляем дисциплину
             }
@@ -167,6 +224,34 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             newDiscipline.isExam = true;
             disciplines.push_back(newDiscipline);
 
+            string wayDirectoryStr = wstringToUTF8(wayDirectory);
+            string nameNewDiscipline = newDiscipline.name; // nameNewDiscipline уже string
+
+            // Формируем полный путь к файлу
+            string filePath = wayDirectoryStr + "\\" + nameNewDiscipline + ".txt"; // Добавим расширение файла
+
+            // Создаем или открываем файл
+            fstream file(filePath, ios::out);
+            
+            if (!file.is_open()) {
+                // Преобразуем filePath из string в wstring
+                wstring filePathW = UTF8_to_wstring(filePath);
+
+                MessageBoxW(hwnd, filePathW.c_str(), L"Ошибка", MB_OK | MB_ICONERROR);
+                break; // Или можно попробовать создать файл
+            }
+            //1 строка - название
+            //2 строка - лабы, по началу будут заполнены нулями
+            //3 строка - контрольная работа
+            file << newDiscipline.name << endl;
+            for (int i = 0; i < newDiscipline.labs; i++) {
+                file << "0" << " ";
+            }
+            file << endl;
+            for (int i = 0; i < newDiscipline.controlWorks; i++) {
+                file << 0 << " ";
+            }
+            file << endl;
             InvalidateRect(hwnd, NULL, TRUE);
             break;
         }
@@ -213,7 +298,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
             newDiscipline.isExam = false;
             disciplines.push_back(newDiscipline);
 
-
+            if (flagCreateDirectory == false) {
+                CreateDirectory(L"C:\\Users\\morons", NULL);
+            }
 
             InvalidateRect(hwnd, NULL, TRUE);
             break;
